@@ -1,62 +1,93 @@
-const { globSync } = require('glob')
+// eslint-disable-next-line no-undef
+const { glob, globSync } = require("glob");
 
-module.exports = function (babel) {
-  const { types: t } = babel;
-  // PICKUP - VariableDeclaration is the visitor we need to access to gain the variable name so that we can reassign it after getting the files https://github.com/OpenSourceRaidGuild/babel-vite/blob/main/packages/babel-plugin-transform-vite-meta-glob/src/index.ts
-  // We want the same output as shown here - https://rfcs.emberjs.com/id/0939-import-glob - under "Eager mode"
-  // https://astexplorer.net/#/gist/14696755417f9d41c8c2bd72c187b0da/21a2d01c90248e6cd2e024466aa50e9bd3a12a89
+// https://astexplorer.net/#/gist/14696755417f9d41c8c2bd72c187b0da/41a903d14d860270fa4eefab69c8ae8934971cdc
+module.exports = function ({ types: t }) {
+  let program;
+
+  const handleEager = (path, files) => {
+    let identifiers = [];
+    // create the imports
+    const imports = files.map((globPath, idx) => {
+      const name = `_w${idx}`;
+      const identifier = t.identifier(name);
+      identifiers.push({ name, globPath });
+      const importDefaultSpecifier = t.importDefaultSpecifier(identifier);
+      return t.importDeclaration(
+        [importDefaultSpecifier],
+        t.stringLiteral(globPath)
+      );
+    });
+    program.unshiftContainer("body", imports);
+
+    const newObj = identifiers.map(({ name, globPath }) => {
+      return t.objectProperty(t.stringLiteral(globPath), t.identifier(name));
+    });
+    console.log('about to replace')
+    path.replaceWith(t.objectExpression(newObj));
+  };
   return {
     name: "ember-meta-glob", // not required
     visitor: {
-      CallExpression(path) {
+      Program(path) {
+        // keep a reference to the Program
+        program = path;
+      },
+      async CallExpression(path) {
+        const { node } = path;
+        // return early if it is not the import we are looking for
         if (
-          path.node.callee?.object?.meta?.name === "import" &&
-          path.node.callee.object.property?.name === "meta" &&
-          path.node.callee.property?.name === "glob"
+          node.callee.object?.meta?.name !== "import" ||
+          node.callee.object.property?.name !== "meta" ||
+          node.callee.property?.name !== "glob"
         ) {
-          const glob = () => ["./widgets/first.js", "./widgets/second.js"];
-          const files = glob(path.node.arguments[0].value);
-          console.log(files);
-          const isEager = (path.node.arguments[1] && path.node.arguments[1].properties[0].key.name === "eager" && path.node.arguments[1].properties[0].value.value) || false;
-          if (isEager) {
-            console.log('here', path.node.arguments[0].value)
-            const globPaths = globSync(path.node.arguments[0].value)
-              .sort()
-              .map((globPath) => globPath.replace(/\\/g, '/'))
-            console.log(globPaths)
-          }
-          const newStuff = files.map((file) => {
-            return t.objectProperty(
-              t.stringLiteral(file),
-              t.arrowFunctionExpression(
-                [],
-                t.callExpression(t.identifier("import"), [
-                  t.stringLiteral(file),
-                ])
-              )
-            );
-          });
-
-          path.replaceWith(t.objectExpression(newStuff));
+          return;
         }
+
+        // get the files from the file system
+        const pathName = node.arguments[0].value;
+        let foundFiles = await glob(pathName, { ignore: "node_modules/**" });
+
+        // dedupe the files and remove the suffix
+        const files = []
+        foundFiles.forEach(file => {
+          const regex = new RegExp(/.[tjhbcs]s?$/g)
+          if (!regex.test(file)) {
+            return
+          }
+          const withoutSuffix = file.split('.')[0]
+          if (files.find(f => f === withoutSuffix)) {
+            return
+          }
+          files.push(withoutSuffix)
+        })
+
+        const isEager =
+          (node.arguments[1] &&
+            node.arguments[1].properties[0].key.name === "eager" &&
+            node.arguments[1].properties[0].value.value) ||
+          false;
+
+        // branch off if using the eager strategy
+        if (isEager) {
+          handleEager(path, files);
+          return;
+        }
+
+        // replace the glob import and a lazy import of all of the files found
+        const newObj = files.map((file) => {
+          return t.objectProperty(
+            t.stringLiteral(file),
+            t.arrowFunctionExpression(
+              [],
+              t.callExpression(t.identifier("require"), [t.stringLiteral(file)])
+            )
+          );
+        });
+        console.log('about to replace normal')
+
+        path.replaceWith(t.objectExpression(newObj));
       },
     },
   };
 };
-
-// We need "Eager mode" from https://rfcs.emberjs.com/id/0939-import-glob
-// Check out the eager stuff here - https://github.com/OpenSourceRaidGuild/babel-vite/blob/main/packages/babel-plugin-transform-vite-meta-glob/src/index.ts
-
-// const widgets = import.meta.glob('./widgets/*.js');
-// const widgets = {
-//   './widgets/first.js': () => import('./widgets/first.js'),
-//   './widgets/second.js': () => import('./widgets/second.js'),
-// }
-
-// const eagerWidgets = import.meta.glob('./widgets/*.js', {eager: true})
-// import _w0 from './widgets/first.js';
-// import _w1 from './widgets/second.js';
-// const eagerWidgets = {
-//   './widgets/first.js': _w0,
-//   './widgets/second.js': _w1,
-// }
