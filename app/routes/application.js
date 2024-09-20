@@ -1,9 +1,8 @@
 import Route from '@ember/routing/route';
-const foo_bar = import.meta.glob('app/components/foo/**', {
+const foo_bar = import.meta.glob('../components/foo/**', {
   eager: true,
 });
 
-// Cannot use 'import.meta' outside a module
+console.log(foo_bar);
 
-export default class ApplicationRoute extends Route {
-}
+export default class ApplicationRoute extends Route {}
