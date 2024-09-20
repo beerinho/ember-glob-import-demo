@@ -30,6 +30,9 @@
     "@ember/optional-features": "^2.0.0",
     "@ember/string": "^3.0.1",
     "@ember/test-helpers": "^2.9.3",
+    "@embroider/compat": "^3.6.1",
+    "@embroider/core": "^3.4.15",
+    "@embroider/webpack": "^4.0.5",
     "@glimmer/component": "^1.1.2",
     "@glimmer/tracking": "^1.1.2",
     "broccoli-asset-rev": "^3.0.0",
@@ -68,7 +71,7 @@
     "stylelint-config-standard": "^32.0.0",
     "stylelint-prettier": "^3.0.0",
     "tracked-built-ins": "^3.1.1",
-    "webpack": "^5.78.0"
+    "webpack": "^5.91.0"
   },
   "engines": {
     "node": "14.* || 16.* || >= 18"

@@ -45,11 +45,12 @@ module.exports = function ({ types: t }) {
           return;
         }
 
-        // get the files from the file system
-        const pathName = node.arguments[0].value;
-        let foundFiles = globSync(pathName, {
-          ignore: 'node_modules/**',
-          cwd: dirname(
+        let cwd;
+
+        if (state.filename.includes('.embroider')) {
+          cwd = dirname(state.filename);
+        } else {
+          cwd = dirname(
             [
               ...state.cwd.split('/'),
               'app',
@@ -58,7 +59,14 @@ module.exports = function ({ types: t }) {
                 .split('/')
                 .slice(1),
             ].join('/')
-          ),
+          );
+        }
+
+        // get the files from the file system
+        const pathName = node.arguments[0].value;
+        let foundFiles = globSync(pathName, {
+          ignore: 'node_modules/**',
+          cwd,
         });
 
         // dedupe the files and remove the suffix
