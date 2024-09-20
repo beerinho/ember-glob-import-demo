@@ -78,5 +78,6 @@
   },
   "ember": {
     "edition": "octane"
-  }
+  },
+  "packageManager": "pnpm@8.15.9"
 }
