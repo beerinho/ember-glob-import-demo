@@ -27,6 +27,7 @@ module.exports = {
     // node files
     {
       files: [
+        './babel-plugin-transform-ember-meta-glob.cjs',
         './.eslintrc.js',
         './.prettierrc.js',
         './.stylelintrc.js',
